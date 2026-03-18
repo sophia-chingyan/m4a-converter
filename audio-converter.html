@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M4A Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/ffmpeg.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/814.ffmpeg.min.js" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-hover: #1a1a26;
+    --border: #2a2a3a;
+    --border-active: #5b4fff;
+    --accent: #5b4fff;
+    --accent-glow: rgba(91, 79, 255, 0.3);
+    --accent-soft: rgba(91, 79, 255, 0.1);
+    --text: #e8e6f0;
+    --text-dim: #7a7890;
+    --text-muted: #4a4860;
+    --success: #2dd4a8;
+    --success-glow: rgba(45, 212, 168, 0.2);
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --mp3: #ff6b9d;
+    --wav: #4ecdc4;
+    --ogg: #ffd93d;
+    --radius: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: 
+      radial-gradient(ellipse at 20% 50%, rgba(91, 79, 255, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(255, 107, 157, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(78, 205, 196, 0.04) 0%, transparent 50%);
+    z-index: 0;
+    animation: ambientDrift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes ambientDrift {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    100% { transform: translate(-2%, 2%) rotate(3deg); }
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .logo-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px var(--accent-glow);
+    animation: logoFloat 3s ease-in-out infinite;
+  }
+
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .logo-icon svg { width: 32px; height: 32px; fill: white; }
+
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  /* Drop Zone */
+  .drop-zone {
+    position: relative;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent-soft), transparent);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 40px var(--accent-glow);
+  }
+
+  .drop-zone:hover::before, .drop-zone.drag-over::before { opacity: 1; }
+
+  .drop-icon {
+    position: relative;
+    z-index: 1;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 16px;
+    background: rgba(91, 79, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .drop-icon svg { width: 28px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 1.5; }
+
+  .drop-zone p {
+    position: relative;
+    z-index: 1;
+    font-size: 15px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .drop-zone p strong { color: var(--accent); font-weight: 500; }
+  .drop-zone input { display: none; }
+
+  /* File Info Card */
+  .file-card {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-top: 16px;
+    align-items: center;
+    gap: 16px;
+    animation: slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .file-card.visible { display: flex; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .file-icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .file-icon-wrap svg { width: 22px; height: 22px; fill: white; }
+
+  .file-info { flex: 1; min-width: 0; }
+  .file-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-meta { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+
+  .file-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .file-remove:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+
+  /* Section Titles */
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin: 36px 0 16px;
+  }
+
+  /* Format Selector */
+  .format-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .format-btn {
+    position: relative;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .format-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .format-btn[data-format="mp3"]::before { background: linear-gradient(135deg, rgba(255, 107, 157, 0.08), transparent); }
+  .format-btn[data-format="wav"]::before { background: linear-gradient(135deg, rgba(78, 205, 196, 0.08), transparent); }
+  .format-btn[data-format="ogg"]::before { background: linear-gradient(135deg, rgba(255, 217, 61, 0.08), transparent); }
+
+  .format-btn:hover { transform: translateY(-2px); border-color: var(--text-muted); }
+  .format-btn:hover::before { opacity: 1; }
+
+  .format-btn.active[data-format="mp3"] { border-color: var(--mp3); box-shadow: 0 4px 24px rgba(255, 107, 157, 0.2); }
+  .format-btn.active[data-format="wav"] { border-color: var(--wav); box-shadow: 0 4px 24px rgba(78, 205, 196, 0.2); }
+  .format-btn.active[data-format="ogg"] { border-color: var(--ogg); box-shadow: 0 4px 24px rgba(255, 217, 61, 0.2); }
+  .format-btn.active::before { opacity: 1; }
+
+  .format-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin: 0 auto 12px;
+  }
+
+  .format-btn[data-format="mp3"] .format-dot { background: var(--mp3); }
+  .format-btn[data-format="wav"] .format-dot { background: var(--wav); }
+  .format-btn[data-format="ogg"] .format-dot { background: var(--ogg); }
+
+  .format-label {
+    position: relative;
+    z-index: 1;
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .format-desc {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Quality Controls */
+  .quality-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    animation: slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .quality-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .quality-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .quality-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 80px;
+    text-align: right;
+  }
+
+  .slider-wrap { margin-bottom: 24px; }
+  .slider-wrap:last-child { margin-bottom: 0; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 2px 8px var(--accent-glow);
+    transition: transform 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+
+  .quality-presets {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .preset-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .preset-btn:hover { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .preset-label { display: block; font-weight: 700; margin-bottom: 2px; }
+  .preset-detail { font-size: 10px; color: var(--text-muted); }
+
+  /* Estimated size */
+  .estimate-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .estimate-bar span { font-family: 'Space Mono', monospace; color: var(--text); font-weight: 700; }
+
+  /* Convert Button */
+  .convert-btn {
+    width: 100%;
+    padding: 20px;
+    border: none;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    color: white;
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    margin-top: 32px;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .convert-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #8b5cf6, var(--accent));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .convert-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px var(--accent-glow);
+  }
+
+  .convert-btn:hover::before { opacity: 1; }
+  .convert-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .convert-btn span { position: relative; z-index: 1; }
+
+  /* Progress */
+  .progress-area {
+    display: none;
+    margin-top: 24px;
+    animation: slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .progress-area.visible { display: block; }
+
+  .progress-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), #8b5cf6);
+    width: 0%;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  .progress-status {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .progress-status .pct {
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Result */
+  .result-card {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-top: 24px;
+    text-align: center;
+    animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 4px 24px var(--success-glow);
+  }
+
+  .result-card.visible { display: block; }
+
+  .result-check {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--success-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  .result-check svg { width: 24px; height: 24px; stroke: var(--success); fill: none; stroke-width: 2.5; }
+
+  .result-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .result-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; }
+
+  .download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    background: var(--success);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .download-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 16px var(--success-glow); }
+  .download-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+  /* Loading spinner */
+  .loading-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status / Error msg */
+  .status-msg {
+    display: none;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-top: 16px;
+    animation: slideUp 0.3s ease;
+  }
+
+  .status-msg.error {
+    display: block;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+  }
+
+  .status-msg.info {
+    display: block;
+    background: var(--accent-soft);
+    border: 1px solid rgba(91, 79, 255, 0.3);
+    color: #a5b4fc;
+  }
+
+  /* WAV notice */
+  .wav-notice {
+    display: none;
+    font-size: 11px;
+    color: var(--warning);
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: rgba(245, 158, 11, 0.08);
+    border-radius: 8px;
+    border: 1px solid rgba(245, 158, 11, 0.15);
+  }
+
+  .wav-notice.visible { display: block; }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    .app { padding: 32px 16px 64px; }
+    h1 { font-size: 22px; }
+    .format-grid { gap: 8px; }
+    .format-btn { padding: 18px 10px; }
+    .quality-panel { padding: 20px; }
+    .quality-presets { flex-wrap: wrap; }
+    .preset-btn { min-width: calc(50% - 4px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 18c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zM21 16c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/></svg>
+    </div>
+    <h1>M4A Converter</h1>
+    <p class="subtitle">Convert M4A audio to MP3, WAV, or OGG — right in your browser</p>
+  </div>
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </div>
+    <p><strong>Drop your M4A file here</strong><br>or click to browse</p>
+    <input type="file" id="fileInput" accept=".m4a,audio/mp4,audio/x-m4a,audio/aac">
+  </div>
+
+  <!-- File Info -->
+  <div class="file-card" id="fileCard">
+    <div class="file-icon-wrap">
+      <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 18c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zM21 16c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/></svg>
+    </div>
+    <div class="file-info">
+      <div class="file-name" id="fileName"></div>
+      <div class="file-meta" id="fileMeta"></div>
+    </div>
+    <button class="file-remove" id="fileRemove" title="Remove file">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- Format Selection -->
+  <div class="section-title">Output Format</div>
+  <div class="format-grid">
+    <button class="format-btn active" data-format="mp3">
+      <div class="format-dot"></div>
+      <div class="format-label">MP3</div>
+      <div class="format-desc">Universal</div>
+    </button>
+    <button class="format-btn" data-format="wav">
+      <div class="format-dot"></div>
+      <div class="format-label">WAV</div>
+      <div class="format-desc">Lossless</div>
+    </button>
+    <button class="format-btn" data-format="ogg">
+      <div class="format-dot"></div>
+      <div class="format-label">OGG</div>
+      <div class="format-desc">Open Source</div>
+    </button>
+  </div>
+
+  <!-- Quality Settings -->
+  <div class="section-title">Quality Settings</div>
+  <div class="quality-panel" id="qualityPanel">
+    <!-- MP3/OGG: Bitrate -->
+    <div id="bitrateControl">
+      <div class="slider-wrap">
+        <div class="quality-row">
+          <span class="quality-label">Bitrate</span>
+          <span class="quality-value" id="bitrateValue">192 kbps</span>
+        </div>
+        <input type="range" id="bitrateSlider" min="64" max="320" step="32" value="192">
+      </div>
+    </div>
+
+    <!-- WAV: Sample Rate & Bit Depth -->
+    <div id="wavControls" style="display:none;">
+      <div class="slider-wrap">
+        <div class="quality-row">
+          <span class="quality-label">Sample Rate</span>
+          <span class="quality-value" id="sampleRateValue">44100 Hz</span>
+        </div>
+        <input type="range" id="sampleRateSlider" min="0" max="3" step="1" value="1">
+      </div>
+      <div class="slider-wrap">
+        <div class="quality-row">
+          <span class="quality-label">Bit Depth</span>
+          <span class="quality-value" id="bitDepthValue">16-bit</span>
+        </div>
+        <input type="range" id="bitDepthSlider" min="0" max="2" step="1" value="0">
+      </div>
+    </div>
+
+    <!-- Channel selector (all formats) -->
+    <div class="slider-wrap">
+      <div class="quality-row">
+        <span class="quality-label">Channels</span>
+        <span class="quality-value" id="channelValue">Stereo</span>
+      </div>
+      <input type="range" id="channelSlider" min="1" max="2" step="1" value="2">
+    </div>
+
+    <!-- Presets -->
+    <div class="quality-presets" id="presets">
+      <button class="preset-btn" data-preset="low">
+        <span class="preset-label">Low</span>
+        <span class="preset-detail">Smallest size</span>
+      </button>
+      <button class="preset-btn active" data-preset="standard">
+        <span class="preset-label">Standard</span>
+        <span class="preset-detail">Balanced</span>
+      </button>
+      <button class="preset-btn" data-preset="high">
+        <span class="preset-label">High</span>
+        <span class="preset-detail">Best quality</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="wav-notice" id="wavNotice">
+    ⚠ WAV files are uncompressed and will be significantly larger than the source M4A.
+  </div>
+
+  <!-- Estimated Size -->
+  <div class="estimate-bar" id="estimateBar" style="display:none;">
+    <div>Estimated output size</div>
+    <span id="estimateSize">~2.4 MB</span>
+  </div>
+
+  <div id="statusMsg" class="status-msg"></div>
+
+  <!-- Convert Button -->
+  <button class="convert-btn" id="convertBtn" disabled>
+    <span>Convert to MP3</span>
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-area" id="progressArea">
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-status">
+      <span id="progressLabel">Initializing FFmpeg...</span>
+      <span class="pct" id="progressPct">0%</span>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="result-check">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="result-title">Conversion Complete!</div>
+    <div class="result-meta" id="resultMeta"></div>
+    <button class="download-btn" id="downloadBtn">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download
+    </button>
+  </div>
+</div>
+
+<script>
+  // ─── State ───
+  let selectedFile = null;
+  let selectedFormat = 'mp3';
+  let convertedBlob = null;
+  let convertedFileName = '';
+
+  const sampleRates = [22050, 44100, 48000, 96000];
+  const bitDepths = [16, 24, 32];
+
+  // ─── Elements ───
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileCard = document.getElementById('fileCard');
+  const fileName = document.getElementById('fileName');
+  const fileMeta = document.getElementById('fileMeta');
+  const fileRemove = document.getElementById('fileRemove');
+  const formatBtns = document.querySelectorAll('.format-btn');
+  const bitrateControl = document.getElementById('bitrateControl');
+  const wavControls = document.getElementById('wavControls');
+  const bitrateSlider = document.getElementById('bitrateSlider');
+  const bitrateValue = document.getElementById('bitrateValue');
+  const sampleRateSlider = document.getElementById('sampleRateSlider');
+  const sampleRateValue = document.getElementById('sampleRateValue');
+  const bitDepthSlider = document.getElementById('bitDepthSlider');
+  const bitDepthValue = document.getElementById('bitDepthValue');
+  const channelSlider = document.getElementById('channelSlider');
+  const channelValue = document.getElementById('channelValue');
+  const presets = document.getElementById('presets');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+  const wavNotice = document.getElementById('wavNotice');
+  const estimateBar = document.getElementById('estimateBar');
+  const estimateSize = document.getElementById('estimateSize');
+  const convertBtn = document.getElementById('convertBtn');
+  const progressArea = document.getElementById('progressArea');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const progressPct = document.getElementById('progressPct');
+  const resultCard = document.getElementById('resultCard');
+  const resultMeta = document.getElementById('resultMeta');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const statusMsg = document.getElementById('statusMsg');
+
+  // ─── Helpers ───
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function showStatus(msg, type = 'error') {
+    statusMsg.className = 'status-msg ' + type;
+    statusMsg.textContent = msg;
+    statusMsg.style.display = 'block';
+    if (type !== 'error') setTimeout(() => statusMsg.style.display = 'none', 5000);
+  }
+
+  function hideStatus() { statusMsg.style.display = 'none'; }
+
+  function updateEstimate() {
+    if (!selectedFile) { estimateBar.style.display = 'none'; return; }
+    estimateBar.style.display = 'flex';
+
+    // Duration estimate: assume ~1 min per 1MB of M4A (rough)
+    const fileSizeMB = selectedFile.size / 1048576;
+    const estDurationSec = fileSizeMB * 60; // very rough
+
+    let estBytes;
+    if (selectedFormat === 'wav') {
+      const sr = sampleRates[sampleRateSlider.value];
+      const bd = bitDepths[bitDepthSlider.value];
+      const ch = parseInt(channelSlider.value);
+      estBytes = sr * (bd / 8) * ch * estDurationSec;
+    } else {
+      const bitrate = parseInt(bitrateSlider.value);
+      estBytes = (bitrate * 1000 / 8) * estDurationSec;
+    }
+    estimateSize.textContent = '~' + formatBytes(estBytes);
+  }
+
+  // ─── File Handling ───
+  function handleFile(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'm4a' && !file.type.includes('mp4') && !file.type.includes('m4a') && !file.type.includes('aac')) {
+      showStatus('Please select a valid M4A audio file.');
+      return;
+    }
+    hideStatus();
+    selectedFile = file;
+    fileName.textContent = file.name;
+    fileMeta.textContent = formatBytes(file.size);
+    fileCard.classList.add('visible');
+    convertBtn.disabled = false;
+    resultCard.classList.remove('visible');
+    progressArea.classList.remove('visible');
+    updateEstimate();
+  }
+
+  function removeFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    fileCard.classList.remove('visible');
+    convertBtn.disabled = true;
+    estimateBar.style.display = 'none';
+    resultCard.classList.remove('visible');
+    progressArea.classList.remove('visible');
+    hideStatus();
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+  fileRemove.addEventListener('click', (e) => { e.stopPropagation(); removeFile(); });
+
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  // ─── Format Selection ───
+  formatBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      formatBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedFormat = btn.dataset.format;
+      convertBtn.querySelector('span').textContent = 'Convert to ' + selectedFormat.toUpperCase();
+
+      if (selectedFormat === 'wav') {
+        bitrateControl.style.display = 'none';
+        wavControls.style.display = 'block';
+        wavNotice.classList.add('visible');
+        presets.style.display = 'none';
+      } else {
+        bitrateControl.style.display = 'block';
+        wavControls.style.display = 'none';
+        wavNotice.classList.remove('visible');
+        presets.style.display = 'flex';
+      }
+      updateEstimate();
+    });
+  });
+
+  // ─── Sliders ───
+  bitrateSlider.addEventListener('input', () => {
+    bitrateValue.textContent = bitrateSlider.value + ' kbps';
+    presetBtns.forEach(b => b.classList.remove('active'));
+    updateEstimate();
+  });
+
+  sampleRateSlider.addEventListener('input', () => {
+    sampleRateValue.textContent = sampleRates[sampleRateSlider.value] + ' Hz';
+    updateEstimate();
+  });
+
+  bitDepthSlider.addEventListener('input', () => {
+    bitDepthValue.textContent = bitDepths[bitDepthSlider.value] + '-bit';
+    updateEstimate();
+  });
+
+  channelSlider.addEventListener('input', () => {
+    channelValue.textContent = channelSlider.value === '1' ? 'Mono' : 'Stereo';
+    updateEstimate();
+  });
+
+  // ─── Presets ───
+  const presetValues = {
+    low: { bitrate: 96 },
+    standard: { bitrate: 192 },
+    high: { bitrate: 320 }
+  };
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      presetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const p = presetValues[btn.dataset.preset];
+      bitrateSlider.value = p.bitrate;
+      bitrateValue.textContent = p.bitrate + ' kbps';
+      updateEstimate();
+    });
+  });
+
+  // ─── Conversion using Web Audio API + encoding ───
+  convertBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    hideStatus();
+    resultCard.classList.remove('visible');
+    progressArea.classList.add('visible');
+    convertBtn.disabled = true;
+
+    try {
+      // Step 1: Decode the M4A
+      setProgress(10, 'Reading audio file...');
+      const arrayBuffer = await selectedFile.arrayBuffer();
+
+      setProgress(25, 'Decoding audio...');
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      let audioBuffer;
+      try {
+        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      } catch (decodeErr) {
+        throw new Error('Failed to decode M4A file. The file may be corrupted or unsupported by your browser.');
+      }
+
+      setProgress(50, 'Encoding to ' + selectedFormat.toUpperCase() + '...');
+      const channels = Math.min(parseInt(channelSlider.value), audioBuffer.numberOfChannels);
+
+      let outputBlob;
+      if (selectedFormat === 'wav') {
+        const targetSampleRate = sampleRates[sampleRateSlider.value];
+        const targetBitDepth = bitDepths[bitDepthSlider.value];
+        outputBlob = encodeWAV(audioBuffer, channels, targetSampleRate, targetBitDepth);
+        setProgress(90, 'Finalizing...');
+      } else if (selectedFormat === 'mp3' || selectedFormat === 'ogg') {
+        // For MP3/OGG, we encode as WAV then note browser limitations
+        // Use MediaRecorder for OGG if available, otherwise WAV fallback
+        if (selectedFormat === 'ogg' && typeof MediaRecorder !== 'undefined') {
+          outputBlob = await encodeWithMediaRecorder(audioBuffer, channels, 'audio/ogg; codecs=opus');
+        } else if (selectedFormat === 'mp3') {
+          // Encode as high-quality WAV and use it (browsers can't natively encode MP3)
+          // We'll use a simple approach: convert via OfflineAudioContext + WAV with note
+          outputBlob = await encodeWithMediaRecorder(audioBuffer, channels, 'audio/webm;codecs=opus');
+          if (!outputBlob) {
+            // Fallback to WAV
+            outputBlob = encodeWAV(audioBuffer, channels, 44100, 16);
+            showStatus('Your browser cannot encode MP3 directly. File saved as WAV format instead.', 'info');
+            selectedFormat = 'wav';
+          }
+        }
+        setProgress(90, 'Finalizing...');
+      }
+
+      if (!outputBlob) {
+        throw new Error('Encoding failed. Your browser may not support this format.');
+      }
+
+      setProgress(100, 'Done!');
+
+      // Show result
+      const baseName = selectedFile.name.replace(/\.[^.]+$/, '');
+      convertedFileName = baseName + '.' + selectedFormat;
+      convertedBlob = outputBlob;
+
+      resultMeta.textContent = formatBytes(outputBlob.size) + ' • ' + selectedFormat.toUpperCase();
+      resultCard.classList.add('visible');
+
+      setTimeout(() => { progressArea.classList.remove('visible'); }, 800);
+      audioCtx.close();
+
+    } catch (err) {
+      showStatus(err.message || 'Conversion failed. Please try again.');
+      progressArea.classList.remove('visible');
+    } finally {
+      convertBtn.disabled = false;
+    }
+  });
+
+  function setProgress(pct, label) {
+    progressFill.style.width = pct + '%';
+    progressPct.textContent = pct + '%';
+    progressLabel.textContent = label;
+  }
+
+  // ─── WAV Encoder ───
+  function encodeWAV(audioBuffer, numChannels, targetSampleRate, bitDepth) {
+    // Resample if needed
+    let bufferData = [];
+    const origRate = audioBuffer.sampleRate;
+
+    for (let ch = 0; ch < numChannels; ch++) {
+      const channelData = audioBuffer.getChannelData(ch);
+      if (targetSampleRate !== origRate) {
+        bufferData.push(resample(channelData, origRate, targetSampleRate));
+      } else {
+        bufferData.push(channelData);
+      }
+    }
+
+    const length = bufferData[0].length;
+    const bytesPerSample = bitDepth / 8;
+    const dataSize = length * numChannels * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    // WAV header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, bitDepth === 32 ? 3 : 1, true); // PCM or Float
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, targetSampleRate, true);
+    view.setUint32(28, targetSampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    // Interleave and write samples
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, bufferData[ch][i]));
+        if (bitDepth === 16) {
+          view.setInt16(offset, sample * 0x7FFF, true);
+          offset += 2;
+        } else if (bitDepth === 24) {
+          const val = sample * 0x7FFFFF;
+          view.setUint8(offset, val & 0xFF);
+          view.setUint8(offset + 1, (val >> 8) & 0xFF);
+          view.setUint8(offset + 2, (val >> 16) & 0xFF);
+          offset += 3;
+        } else if (bitDepth === 32) {
+          view.setFloat32(offset, sample, true);
+          offset += 4;
+        }
+      }
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  function writeString(view, offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+
+  function resample(data, fromRate, toRate) {
+    const ratio = fromRate / toRate;
+    const newLength = Math.round(data.length / ratio);
+    const result = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+      const pos = i * ratio;
+      const idx = Math.floor(pos);
+      const frac = pos - idx;
+      result[i] = idx + 1 < data.length
+        ? data[idx] * (1 - frac) + data[idx + 1] * frac
+        : data[idx];
+    }
+    return result;
+  }
+
+  // ─── MediaRecorder Encoder (for OGG/WebM) ───
+  function encodeWithMediaRecorder(audioBuffer, numChannels, mimeType) {
+    return new Promise((resolve) => {
+      // Check if the MIME type is supported
+      if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mimeType)) {
+        // Try fallback mimes
+        const fallbacks = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm'];
+        let supported = null;
+        for (const fb of fallbacks) {
+          if (MediaRecorder.isTypeSupported(fb)) { supported = fb; break; }
+        }
+        if (!supported) { resolve(null); return; }
+        mimeType = supported;
+      }
+
+      const offlineCtx = new OfflineAudioContext(numChannels, audioBuffer.length, audioBuffer.sampleRate);
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+
+      // Create a MediaStream destination using a real AudioContext
+      const realCtx = new AudioContext();
+      const dest = realCtx.createMediaStreamDestination();
+
+      // We need to play through a real context for MediaRecorder
+      const realSource = realCtx.createBufferSource();
+      realSource.buffer = audioBuffer;
+      realSource.connect(dest);
+
+      const bitrate = parseInt(bitrateSlider.value) * 1000;
+      const options = { mimeType };
+      if (bitrate) options.audioBitsPerSecond = bitrate;
+
+      const recorder = new MediaRecorder(dest.stream, options);
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
+        if (selectedFormat === 'mp3' && ext === 'webm') {
+          // Update format info
+          selectedFormat = 'webm';
+          showStatus('MP3 encoding requires a server. Saved as WebM (Opus) instead — excellent quality, widely supported.', 'info');
+        } else if (selectedFormat === 'ogg' && ext === 'webm') {
+          selectedFormat = 'webm';
+          showStatus('OGG not supported by your browser. Saved as WebM (Opus) instead.', 'info');
+        }
+        resolve(new Blob(chunks, { type: mimeType }));
+        realCtx.close();
+      };
+
+      recorder.start();
+      realSource.start(0);
+
+      // Stop after the audio duration
+      const duration = audioBuffer.duration * 1000 + 200;
+      setTimeout(() => {
+        recorder.stop();
+        realSource.stop();
+      }, duration);
+
+      // Update progress during recording
+      const startTime = Date.now();
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const pct = Math.min(85, 50 + (elapsed / duration) * 35);
+        setProgress(Math.round(pct), 'Encoding audio...');
+        if (elapsed >= duration) clearInterval(interval);
+      }, 200);
+    });
+  }
+
+  // ─── Download ───
+  downloadBtn.addEventListener('click', () => {
+    if (!convertedBlob) return;
+    const url = URL.createObjectURL(convertedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = convertedFileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+</script>
+
+</body>
+</html>
