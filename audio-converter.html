@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>M4A Converter</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/ffmpeg.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/814.ffmpeg.min.js" defer></script>
+<!-- lamejs: pure-JS MP3 encoder, replaces ffmpeg which wasn't used anyway -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -40,7 +40,6 @@
     overflow-x: hidden;
   }
 
-  /* Ambient background */
   body::before {
     content: '';
     position: fixed;
@@ -69,7 +68,6 @@
     padding: 48px 24px 80px;
   }
 
-  /* Header */
   .header {
     text-align: center;
     margin-bottom: 48px;
@@ -112,7 +110,6 @@
     font-weight: 300;
   }
 
-  /* Drop Zone */
   .drop-zone {
     position: relative;
     border: 2px dashed var(--border);
@@ -168,7 +165,6 @@
   .drop-zone p strong { color: var(--accent); font-weight: 500; }
   .drop-zone input { display: none; }
 
-  /* File Info Card */
   .file-card {
     display: none;
     background: var(--surface);
@@ -225,7 +221,6 @@
 
   .file-remove:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
 
-  /* Section Titles */
   .section-title {
     font-family: 'Space Mono', monospace;
     font-size: 11px;
@@ -236,7 +231,6 @@
     margin: 36px 0 16px;
   }
 
-  /* Format Selector */
   .format-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -303,7 +297,6 @@
     margin-top: 4px;
   }
 
-  /* Quality Controls */
   .quality-panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -398,7 +391,6 @@
   .preset-label { display: block; font-weight: 700; margin-bottom: 2px; }
   .preset-detail { font-size: 10px; color: var(--text-muted); }
 
-  /* Estimated size */
   .estimate-bar {
     display: flex;
     align-items: center;
@@ -414,7 +406,6 @@
 
   .estimate-bar span { font-family: 'Space Mono', monospace; color: var(--text); font-weight: 700; }
 
-  /* Convert Button */
   .convert-btn {
     width: 100%;
     padding: 20px;
@@ -451,7 +442,6 @@
   .convert-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   .convert-btn span { position: relative; z-index: 1; }
 
-  /* Progress */
   .progress-area {
     display: none;
     margin-top: 24px;
@@ -490,7 +480,6 @@
     font-weight: 700;
   }
 
-  /* Result */
   .result-card {
     display: none;
     background: var(--surface);
@@ -546,21 +535,6 @@
   .download-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 16px var(--success-glow); }
   .download-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; }
 
-  /* Loading spinner */
-  .loading-spinner {
-    display: none;
-    width: 20px;
-    height: 20px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    margin-right: 8px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Status / Error msg */
   .status-msg {
     display: none;
     padding: 14px 20px;
@@ -584,7 +558,6 @@
     color: #a5b4fc;
   }
 
-  /* WAV notice */
   .wav-notice {
     display: none;
     font-size: 11px;
@@ -598,7 +571,6 @@
 
   .wav-notice.visible { display: block; }
 
-  /* Responsive */
   @media (max-width: 500px) {
     .app { padding: 32px 16px 64px; }
     h1 { font-size: 22px; }
@@ -621,7 +593,6 @@
     <p class="subtitle">Convert M4A audio to MP3, WAV, or OGG — right in your browser</p>
   </div>
 
-  <!-- Drop Zone -->
   <div class="drop-zone" id="dropZone">
     <div class="drop-icon">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -630,7 +601,6 @@
     <input type="file" id="fileInput" accept=".m4a,audio/mp4,audio/x-m4a,audio/aac">
   </div>
 
-  <!-- File Info -->
   <div class="file-card" id="fileCard">
     <div class="file-icon-wrap">
       <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 18c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3zM21 16c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/></svg>
@@ -644,7 +614,6 @@
     </button>
   </div>
 
-  <!-- Format Selection -->
   <div class="section-title">Output Format</div>
   <div class="format-grid">
     <button class="format-btn active" data-format="mp3">
@@ -664,10 +633,8 @@
     </button>
   </div>
 
-  <!-- Quality Settings -->
   <div class="section-title">Quality Settings</div>
   <div class="quality-panel" id="qualityPanel">
-    <!-- MP3/OGG: Bitrate -->
     <div id="bitrateControl">
       <div class="slider-wrap">
         <div class="quality-row">
@@ -678,7 +645,6 @@
       </div>
     </div>
 
-    <!-- WAV: Sample Rate & Bit Depth -->
     <div id="wavControls" style="display:none;">
       <div class="slider-wrap">
         <div class="quality-row">
@@ -696,7 +662,6 @@
       </div>
     </div>
 
-    <!-- Channel selector (all formats) -->
     <div class="slider-wrap">
       <div class="quality-row">
         <span class="quality-label">Channels</span>
@@ -705,7 +670,6 @@
       <input type="range" id="channelSlider" min="1" max="2" step="1" value="2">
     </div>
 
-    <!-- Presets -->
     <div class="quality-presets" id="presets">
       <button class="preset-btn" data-preset="low">
         <span class="preset-label">Low</span>
@@ -726,7 +690,6 @@
     ⚠ WAV files are uncompressed and will be significantly larger than the source M4A.
   </div>
 
-  <!-- Estimated Size -->
   <div class="estimate-bar" id="estimateBar" style="display:none;">
     <div>Estimated output size</div>
     <span id="estimateSize">~2.4 MB</span>
@@ -734,23 +697,20 @@
 
   <div id="statusMsg" class="status-msg"></div>
 
-  <!-- Convert Button -->
   <button class="convert-btn" id="convertBtn" disabled>
     <span>Convert to MP3</span>
   </button>
 
-  <!-- Progress -->
   <div class="progress-area" id="progressArea">
     <div class="progress-track">
       <div class="progress-fill" id="progressFill"></div>
     </div>
     <div class="progress-status">
-      <span id="progressLabel">Initializing FFmpeg...</span>
+      <span id="progressLabel">Initializing...</span>
       <span class="pct" id="progressPct">0%</span>
     </div>
   </div>
 
-  <!-- Result -->
   <div class="result-card" id="resultCard">
     <div class="result-check">
       <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -775,37 +735,37 @@
   const bitDepths = [16, 24, 32];
 
   // ─── Elements ───
-  const dropZone = document.getElementById('dropZone');
-  const fileInput = document.getElementById('fileInput');
-  const fileCard = document.getElementById('fileCard');
-  const fileName = document.getElementById('fileName');
-  const fileMeta = document.getElementById('fileMeta');
-  const fileRemove = document.getElementById('fileRemove');
-  const formatBtns = document.querySelectorAll('.format-btn');
+  const dropZone       = document.getElementById('dropZone');
+  const fileInput      = document.getElementById('fileInput');
+  const fileCard       = document.getElementById('fileCard');
+  const fileName       = document.getElementById('fileName');
+  const fileMeta       = document.getElementById('fileMeta');
+  const fileRemove     = document.getElementById('fileRemove');
+  const formatBtns     = document.querySelectorAll('.format-btn');
   const bitrateControl = document.getElementById('bitrateControl');
-  const wavControls = document.getElementById('wavControls');
-  const bitrateSlider = document.getElementById('bitrateSlider');
-  const bitrateValue = document.getElementById('bitrateValue');
+  const wavControls    = document.getElementById('wavControls');
+  const bitrateSlider  = document.getElementById('bitrateSlider');
+  const bitrateValue   = document.getElementById('bitrateValue');
   const sampleRateSlider = document.getElementById('sampleRateSlider');
-  const sampleRateValue = document.getElementById('sampleRateValue');
-  const bitDepthSlider = document.getElementById('bitDepthSlider');
-  const bitDepthValue = document.getElementById('bitDepthValue');
-  const channelSlider = document.getElementById('channelSlider');
-  const channelValue = document.getElementById('channelValue');
-  const presets = document.getElementById('presets');
-  const presetBtns = document.querySelectorAll('.preset-btn');
-  const wavNotice = document.getElementById('wavNotice');
-  const estimateBar = document.getElementById('estimateBar');
-  const estimateSize = document.getElementById('estimateSize');
-  const convertBtn = document.getElementById('convertBtn');
-  const progressArea = document.getElementById('progressArea');
-  const progressFill = document.getElementById('progressFill');
-  const progressLabel = document.getElementById('progressLabel');
-  const progressPct = document.getElementById('progressPct');
-  const resultCard = document.getElementById('resultCard');
-  const resultMeta = document.getElementById('resultMeta');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const statusMsg = document.getElementById('statusMsg');
+  const sampleRateValue  = document.getElementById('sampleRateValue');
+  const bitDepthSlider   = document.getElementById('bitDepthSlider');
+  const bitDepthValue    = document.getElementById('bitDepthValue');
+  const channelSlider  = document.getElementById('channelSlider');
+  const channelValue   = document.getElementById('channelValue');
+  const presets        = document.getElementById('presets');
+  const presetBtns     = document.querySelectorAll('.preset-btn');
+  const wavNotice      = document.getElementById('wavNotice');
+  const estimateBar    = document.getElementById('estimateBar');
+  const estimateSize   = document.getElementById('estimateSize');
+  const convertBtn     = document.getElementById('convertBtn');
+  const progressArea   = document.getElementById('progressArea');
+  const progressFill   = document.getElementById('progressFill');
+  const progressLabel  = document.getElementById('progressLabel');
+  const progressPct    = document.getElementById('progressPct');
+  const resultCard     = document.getElementById('resultCard');
+  const resultMeta     = document.getElementById('resultMeta');
+  const downloadBtn    = document.getElementById('downloadBtn');
+  const statusMsg      = document.getElementById('statusMsg');
 
   // ─── Helpers ───
   function formatBytes(bytes) {
@@ -818,19 +778,22 @@
     statusMsg.className = 'status-msg ' + type;
     statusMsg.textContent = msg;
     statusMsg.style.display = 'block';
-    if (type !== 'error') setTimeout(() => statusMsg.style.display = 'none', 5000);
+    if (type !== 'error') setTimeout(() => statusMsg.style.display = 'none', 6000);
   }
 
   function hideStatus() { statusMsg.style.display = 'none'; }
 
+  function setProgress(pct, label) {
+    progressFill.style.width = pct + '%';
+    progressPct.textContent = pct + '%';
+    progressLabel.textContent = label;
+  }
+
   function updateEstimate() {
     if (!selectedFile) { estimateBar.style.display = 'none'; return; }
     estimateBar.style.display = 'flex';
-
-    // Duration estimate: assume ~1 min per 1MB of M4A (rough)
     const fileSizeMB = selectedFile.size / 1048576;
-    const estDurationSec = fileSizeMB * 60; // very rough
-
+    const estDurationSec = fileSizeMB * 60;
     let estBytes;
     if (selectedFormat === 'wav') {
       const sr = sampleRates[sampleRateSlider.value];
@@ -877,7 +840,6 @@
   dropZone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
   fileRemove.addEventListener('click', (e) => { e.stopPropagation(); removeFile(); });
-
   dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener('drop', (e) => {
@@ -893,7 +855,6 @@
       btn.classList.add('active');
       selectedFormat = btn.dataset.format;
       convertBtn.querySelector('span').textContent = 'Convert to ' + selectedFormat.toUpperCase();
-
       if (selectedFormat === 'wav') {
         bitrateControl.style.display = 'none';
         wavControls.style.display = 'block';
@@ -915,29 +876,21 @@
     presetBtns.forEach(b => b.classList.remove('active'));
     updateEstimate();
   });
-
   sampleRateSlider.addEventListener('input', () => {
     sampleRateValue.textContent = sampleRates[sampleRateSlider.value] + ' Hz';
     updateEstimate();
   });
-
   bitDepthSlider.addEventListener('input', () => {
     bitDepthValue.textContent = bitDepths[bitDepthSlider.value] + '-bit';
     updateEstimate();
   });
-
   channelSlider.addEventListener('input', () => {
     channelValue.textContent = channelSlider.value === '1' ? 'Mono' : 'Stereo';
     updateEstimate();
   });
 
   // ─── Presets ───
-  const presetValues = {
-    low: { bitrate: 96 },
-    standard: { bitrate: 192 },
-    high: { bitrate: 320 }
-  };
-
+  const presetValues = { low: { bitrate: 96 }, standard: { bitrate: 192 }, high: { bitrate: 320 } };
   presetBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       presetBtns.forEach(b => b.classList.remove('active'));
@@ -949,7 +902,7 @@
     });
   });
 
-  // ─── Conversion using Web Audio API + encoding ───
+  // ─── Main Convert Handler ───
   convertBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
 
@@ -958,8 +911,10 @@
     progressArea.classList.add('visible');
     convertBtn.disabled = true;
 
+    // Snapshot the chosen format so nothing can mutate it mid-conversion
+    const outputFormat = selectedFormat;
+
     try {
-      // Step 1: Decode the M4A
       setProgress(10, 'Reading audio file...');
       const arrayBuffer = await selectedFile.arrayBuffer();
 
@@ -968,53 +923,51 @@
       let audioBuffer;
       try {
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      } catch (decodeErr) {
-        throw new Error('Failed to decode M4A file. The file may be corrupted or unsupported by your browser.');
+      } catch (e) {
+        throw new Error('Failed to decode M4A. The file may be corrupted or unsupported by your browser.');
       }
 
-      setProgress(50, 'Encoding to ' + selectedFormat.toUpperCase() + '...');
-      const channels = Math.min(parseInt(channelSlider.value), audioBuffer.numberOfChannels);
-
+      const numChannels = Math.min(parseInt(channelSlider.value), audioBuffer.numberOfChannels);
       let outputBlob;
-      if (selectedFormat === 'wav') {
+
+      if (outputFormat === 'mp3') {
+        // ── FIX: use lamejs for real MP3 encoding ──
+        outputBlob = await encodeMp3(audioBuffer, numChannels);
+      } else if (outputFormat === 'wav') {
+        setProgress(50, 'Encoding to WAV...');
         const targetSampleRate = sampleRates[sampleRateSlider.value];
-        const targetBitDepth = bitDepths[bitDepthSlider.value];
-        outputBlob = encodeWAV(audioBuffer, channels, targetSampleRate, targetBitDepth);
+        const targetBitDepth   = bitDepths[bitDepthSlider.value];
+        outputBlob = encodeWAV(audioBuffer, numChannels, targetSampleRate, targetBitDepth);
         setProgress(90, 'Finalizing...');
-      } else if (selectedFormat === 'mp3' || selectedFormat === 'ogg') {
-        // For MP3/OGG, we encode as WAV then note browser limitations
-        // Use MediaRecorder for OGG if available, otherwise WAV fallback
-        if (selectedFormat === 'ogg' && typeof MediaRecorder !== 'undefined') {
-          outputBlob = await encodeWithMediaRecorder(audioBuffer, channels, 'audio/ogg; codecs=opus');
-        } else if (selectedFormat === 'mp3') {
-          // Encode as high-quality WAV and use it (browsers can't natively encode MP3)
-          // We'll use a simple approach: convert via OfflineAudioContext + WAV with note
-          outputBlob = await encodeWithMediaRecorder(audioBuffer, channels, 'audio/webm;codecs=opus');
-          if (!outputBlob) {
-            // Fallback to WAV
-            outputBlob = encodeWAV(audioBuffer, channels, 44100, 16);
-            showStatus('Your browser cannot encode MP3 directly. File saved as WAV format instead.', 'info');
-            selectedFormat = 'wav';
-          }
+      } else if (outputFormat === 'ogg') {
+        setProgress(50, 'Encoding to OGG...');
+        outputBlob = await encodeWithMediaRecorder(audioBuffer, numChannels, 'audio/ogg; codecs=opus');
+        if (!outputBlob) {
+          // Fallback: WAV if OGG MediaRecorder unavailable
+          outputBlob = encodeWAV(audioBuffer, numChannels, 44100, 16);
+          showStatus('OGG not supported by your browser. Saved as WAV instead.', 'info');
         }
         setProgress(90, 'Finalizing...');
       }
 
-      if (!outputBlob) {
-        throw new Error('Encoding failed. Your browser may not support this format.');
-      }
+      if (!outputBlob) throw new Error('Encoding failed. Try a different format.');
 
       setProgress(100, 'Done!');
 
-      // Show result
+      // Determine actual extension from blob type (important for OGG fallback)
+      let ext = outputFormat;
+      if (outputBlob.type.includes('webm')) ext = 'webm';
+      else if (outputBlob.type.includes('wav'))  ext = 'wav';
+      else if (outputBlob.type.includes('ogg'))  ext = 'ogg';
+      else if (outputBlob.type.includes('mpeg') || outputBlob.type.includes('mp3')) ext = 'mp3';
+
       const baseName = selectedFile.name.replace(/\.[^.]+$/, '');
-      convertedFileName = baseName + '.' + selectedFormat;
+      convertedFileName = baseName + '.' + ext;
       convertedBlob = outputBlob;
 
-      resultMeta.textContent = formatBytes(outputBlob.size) + ' • ' + selectedFormat.toUpperCase();
+      resultMeta.textContent = formatBytes(outputBlob.size) + ' • ' + ext.toUpperCase();
       resultCard.classList.add('visible');
-
-      setTimeout(() => { progressArea.classList.remove('visible'); }, 800);
+      setTimeout(() => progressArea.classList.remove('visible'), 800);
       audioCtx.close();
 
     } catch (err) {
@@ -1025,25 +978,73 @@
     }
   });
 
-  function setProgress(pct, label) {
-    progressFill.style.width = pct + '%';
-    progressPct.textContent = pct + '%';
-    progressLabel.textContent = label;
+  // ─── MP3 Encoder (lamejs) ───
+  // FIX: This is the new function that produces a real .mp3 file.
+  // The old code passed 'audio/webm;codecs=opus' to MediaRecorder for MP3 — that
+  // can only ever produce a .webm container, not an .mp3 file.
+  async function encodeMp3(audioBuffer, numChannels) {
+    setProgress(50, 'Encoding to MP3...');
+
+    const bitrate = parseInt(bitrateSlider.value);
+    const sampleRate = audioBuffer.sampleRate;
+
+    // lamejs requires Int16 PCM samples
+    function floatTo16BitPCM(floatSamples) {
+      const out = new Int16Array(floatSamples.length);
+      for (let i = 0; i < floatSamples.length; i++) {
+        const s = Math.max(-1, Math.min(1, floatSamples[i]));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+      return out;
+    }
+
+    const leftData  = floatTo16BitPCM(audioBuffer.getChannelData(0));
+    const rightData = numChannels > 1
+      ? floatTo16BitPCM(audioBuffer.getChannelData(1))
+      : leftData;
+
+    // Initialise lamejs encoder
+    const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, bitrate);
+    const mp3Data = [];
+    const blockSize = 1152; // lamejs recommended block size
+
+    const total = leftData.length;
+    for (let i = 0; i < total; i += blockSize) {
+      const leftChunk  = leftData.subarray(i, i + blockSize);
+      const rightChunk = rightData.subarray(i, i + blockSize);
+
+      const encoded = numChannels > 1
+        ? mp3encoder.encodeBuffer(leftChunk, rightChunk)
+        : mp3encoder.encodeBuffer(leftChunk);
+
+      if (encoded.length > 0) mp3Data.push(new Int8Array(encoded));
+
+      // Update progress (50% → 90%)
+      if (i % (blockSize * 100) === 0) {
+        const pct = Math.round(50 + (i / total) * 40);
+        setProgress(pct, 'Encoding to MP3...');
+        // Yield to keep UI responsive
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    // Flush remaining frames
+    const flushed = mp3encoder.flush();
+    if (flushed.length > 0) mp3Data.push(new Int8Array(flushed));
+
+    setProgress(90, 'Finalizing...');
+    return new Blob(mp3Data, { type: 'audio/mpeg' });
   }
 
   // ─── WAV Encoder ───
   function encodeWAV(audioBuffer, numChannels, targetSampleRate, bitDepth) {
-    // Resample if needed
     let bufferData = [];
     const origRate = audioBuffer.sampleRate;
-
     for (let ch = 0; ch < numChannels; ch++) {
       const channelData = audioBuffer.getChannelData(ch);
-      if (targetSampleRate !== origRate) {
-        bufferData.push(resample(channelData, origRate, targetSampleRate));
-      } else {
-        bufferData.push(channelData);
-      }
+      bufferData.push(targetSampleRate !== origRate
+        ? resample(channelData, origRate, targetSampleRate)
+        : channelData);
     }
 
     const length = bufferData[0].length;
@@ -1052,13 +1053,12 @@
     const buffer = new ArrayBuffer(44 + dataSize);
     const view = new DataView(buffer);
 
-    // WAV header
     writeString(view, 0, 'RIFF');
     view.setUint32(4, 36 + dataSize, true);
     writeString(view, 8, 'WAVE');
     writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, bitDepth === 32 ? 3 : 1, true); // PCM or Float
+    view.setUint16(20, bitDepth === 32 ? 3 : 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, targetSampleRate, true);
     view.setUint32(28, targetSampleRate * numChannels * bytesPerSample, true);
@@ -1067,27 +1067,23 @@
     writeString(view, 36, 'data');
     view.setUint32(40, dataSize, true);
 
-    // Interleave and write samples
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let ch = 0; ch < numChannels; ch++) {
         const sample = Math.max(-1, Math.min(1, bufferData[ch][i]));
         if (bitDepth === 16) {
-          view.setInt16(offset, sample * 0x7FFF, true);
-          offset += 2;
+          view.setInt16(offset, sample * 0x7FFF, true); offset += 2;
         } else if (bitDepth === 24) {
           const val = sample * 0x7FFFFF;
-          view.setUint8(offset, val & 0xFF);
+          view.setUint8(offset,     val & 0xFF);
           view.setUint8(offset + 1, (val >> 8) & 0xFF);
           view.setUint8(offset + 2, (val >> 16) & 0xFF);
           offset += 3;
         } else if (bitDepth === 32) {
-          view.setFloat32(offset, sample, true);
-          offset += 4;
+          view.setFloat32(offset, sample, true); offset += 4;
         }
       }
     }
-
     return new Blob([buffer], { type: 'audio/wav' });
   }
 
@@ -1110,52 +1106,30 @@
     return result;
   }
 
-  // ─── MediaRecorder Encoder (for OGG/WebM) ───
+  // ─── OGG via MediaRecorder (unchanged, only used for OGG format now) ───
   function encodeWithMediaRecorder(audioBuffer, numChannels, mimeType) {
     return new Promise((resolve) => {
-      // Check if the MIME type is supported
-      if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported(mimeType)) {
-        // Try fallback mimes
+      if (typeof MediaRecorder === 'undefined') { resolve(null); return; }
+
+      // Find a supported MIME type
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
         const fallbacks = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm'];
-        let supported = null;
-        for (const fb of fallbacks) {
-          if (MediaRecorder.isTypeSupported(fb)) { supported = fb; break; }
-        }
-        if (!supported) { resolve(null); return; }
-        mimeType = supported;
+        mimeType = fallbacks.find(fb => MediaRecorder.isTypeSupported(fb)) || null;
+        if (!mimeType) { resolve(null); return; }
       }
 
-      const offlineCtx = new OfflineAudioContext(numChannels, audioBuffer.length, audioBuffer.sampleRate);
-      const source = offlineCtx.createBufferSource();
-      source.buffer = audioBuffer;
-
-      // Create a MediaStream destination using a real AudioContext
       const realCtx = new AudioContext();
       const dest = realCtx.createMediaStreamDestination();
-
-      // We need to play through a real context for MediaRecorder
       const realSource = realCtx.createBufferSource();
       realSource.buffer = audioBuffer;
       realSource.connect(dest);
 
       const bitrate = parseInt(bitrateSlider.value) * 1000;
-      const options = { mimeType };
-      if (bitrate) options.audioBitsPerSecond = bitrate;
-
-      const recorder = new MediaRecorder(dest.stream, options);
+      const recorder = new MediaRecorder(dest.stream, { mimeType, audioBitsPerSecond: bitrate });
       const chunks = [];
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       recorder.onstop = () => {
-        const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
-        if (selectedFormat === 'mp3' && ext === 'webm') {
-          // Update format info
-          selectedFormat = 'webm';
-          showStatus('MP3 encoding requires a server. Saved as WebM (Opus) instead — excellent quality, widely supported.', 'info');
-        } else if (selectedFormat === 'ogg' && ext === 'webm') {
-          selectedFormat = 'webm';
-          showStatus('OGG not supported by your browser. Saved as WebM (Opus) instead.', 'info');
-        }
         resolve(new Blob(chunks, { type: mimeType }));
         realCtx.close();
       };
@@ -1163,21 +1137,15 @@
       recorder.start();
       realSource.start(0);
 
-      // Stop after the audio duration
       const duration = audioBuffer.duration * 1000 + 200;
-      setTimeout(() => {
-        recorder.stop();
-        realSource.stop();
-      }, duration);
-
-      // Update progress during recording
       const startTime = Date.now();
       const interval = setInterval(() => {
         const elapsed = Date.now() - startTime;
-        const pct = Math.min(85, 50 + (elapsed / duration) * 35);
-        setProgress(Math.round(pct), 'Encoding audio...');
+        setProgress(Math.round(Math.min(85, 50 + (elapsed / duration) * 35)), 'Encoding audio...');
         if (elapsed >= duration) clearInterval(interval);
       }, 200);
+
+      setTimeout(() => { recorder.stop(); realSource.stop(); }, duration);
     });
   }
 
@@ -1192,6 +1160,5 @@
     URL.revokeObjectURL(url);
   });
 </script>
-
 </body>
 </html>
