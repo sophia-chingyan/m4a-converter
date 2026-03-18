@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>M4A Converter</title>
-<!-- lamejs: pure-JS MP3 encoder, replaces ffmpeg which wasn't used anyway -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<!-- BUG 1 FIX: lamejs is NOT on cdnjs — use jsDelivr which reliably hosts it -->
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -914,12 +914,21 @@
     // Snapshot the chosen format so nothing can mutate it mid-conversion
     const outputFormat = selectedFormat;
 
+    // BUG 2 FIX: declare audioCtx outside try so finally can always close it,
+    // preventing the AudioContext from leaking on error paths
+    let audioCtx = null;
+
     try {
+      // BUG 3 FIX: guard against lamejs failing to load from CDN before we need it
+      if (outputFormat === 'mp3' && typeof lamejs === 'undefined') {
+        throw new Error('MP3 encoder failed to load. Check your internet connection and reload the page.');
+      }
+
       setProgress(10, 'Reading audio file...');
       const arrayBuffer = await selectedFile.arrayBuffer();
 
       setProgress(25, 'Decoding audio...');
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       let audioBuffer;
       try {
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -941,11 +950,19 @@
         setProgress(90, 'Finalizing...');
       } else if (outputFormat === 'ogg') {
         setProgress(50, 'Encoding to OGG...');
-        outputBlob = await encodeWithMediaRecorder(audioBuffer, numChannels, 'audio/ogg; codecs=opus');
-        if (!outputBlob) {
-          // Fallback: WAV if OGG MediaRecorder unavailable
+        // BUG 4 FIX: encodeWithMediaRecorder now returns { blob, actualMime }
+        // so we can detect when the browser silently substituted WebM for OGG
+        const result = await encodeWithMediaRecorder(audioBuffer, numChannels, 'audio/ogg; codecs=opus');
+        if (!result) {
+          // No MediaRecorder support at all — fall back to WAV
           outputBlob = encodeWAV(audioBuffer, numChannels, 44100, 16);
-          showStatus('OGG not supported by your browser. Saved as WAV instead.', 'info');
+          showStatus('OGG is not supported by your browser. Saved as WAV instead.', 'info');
+        } else {
+          outputBlob = result.blob;
+          if (!result.actualMime.includes('ogg')) {
+            // Browser silently gave us WebM — inform the user
+            showStatus('Your browser does not support OGG encoding. Saved as WebM (Opus) instead — excellent quality, widely supported.', 'info');
+          }
         }
         setProgress(90, 'Finalizing...');
       }
@@ -968,13 +985,14 @@
       resultMeta.textContent = formatBytes(outputBlob.size) + ' • ' + ext.toUpperCase();
       resultCard.classList.add('visible');
       setTimeout(() => progressArea.classList.remove('visible'), 800);
-      audioCtx.close();
 
     } catch (err) {
       showStatus(err.message || 'Conversion failed. Please try again.');
       progressArea.classList.remove('visible');
     } finally {
       convertBtn.disabled = false;
+      // BUG 2 FIX: always close AudioContext, even on error — prevents resource leak
+      if (audioCtx) audioCtx.close();
     }
   });
 
@@ -1106,40 +1124,43 @@
     return result;
   }
 
-  // ─── OGG via MediaRecorder (unchanged, only used for OGG format now) ───
+  // ─── OGG via MediaRecorder ───
+  // BUG 4 FIX: returns { blob, actualMime } instead of just a blob so the caller
+  // can detect when the browser silently substituted WebM for OGG and warn the user.
   function encodeWithMediaRecorder(audioBuffer, numChannels, mimeType) {
     return new Promise((resolve) => {
       if (typeof MediaRecorder === 'undefined') { resolve(null); return; }
 
-      // Find a supported MIME type
+      // Find a supported MIME type, tracking what we actually end up using
+      let actualMime = mimeType;
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         const fallbacks = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm'];
-        mimeType = fallbacks.find(fb => MediaRecorder.isTypeSupported(fb)) || null;
-        if (!mimeType) { resolve(null); return; }
+        actualMime = fallbacks.find(fb => MediaRecorder.isTypeSupported(fb)) || null;
+        if (!actualMime) { resolve(null); return; }
       }
 
-      const realCtx = new AudioContext();
-      const dest = realCtx.createMediaStreamDestination();
+      const realCtx    = new AudioContext();
+      const dest       = realCtx.createMediaStreamDestination();
       const realSource = realCtx.createBufferSource();
       realSource.buffer = audioBuffer;
       realSource.connect(dest);
 
-      const bitrate = parseInt(bitrateSlider.value) * 1000;
-      const recorder = new MediaRecorder(dest.stream, { mimeType, audioBitsPerSecond: bitrate });
-      const chunks = [];
+      const bitrate  = parseInt(bitrateSlider.value) * 1000;
+      const recorder = new MediaRecorder(dest.stream, { mimeType: actualMime, audioBitsPerSecond: bitrate });
+      const chunks   = [];
 
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       recorder.onstop = () => {
-        resolve(new Blob(chunks, { type: mimeType }));
+        resolve({ blob: new Blob(chunks, { type: actualMime }), actualMime });
         realCtx.close();
       };
 
       recorder.start();
       realSource.start(0);
 
-      const duration = audioBuffer.duration * 1000 + 200;
+      const duration  = audioBuffer.duration * 1000 + 200;
       const startTime = Date.now();
-      const interval = setInterval(() => {
+      const interval  = setInterval(() => {
         const elapsed = Date.now() - startTime;
         setProgress(Math.round(Math.min(85, 50 + (elapsed / duration) * 35)), 'Encoding audio...');
         if (elapsed >= duration) clearInterval(interval);
